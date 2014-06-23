@@ -1,5 +1,7 @@
 # Main gem file
 require 'elasticsearch-embedded'
+# Used to stub calls to filesystem
+require 'fakefs/spec_helpers'
 
 RSpec.configure do |config|
   config.filter_run :focus
