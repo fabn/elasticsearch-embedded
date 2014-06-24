@@ -1,0 +1,48 @@
+#!/usr/bin/env ruby
+
+require 'elasticsearch-embedded'
+require 'optparse'
+
+cluster = Elasticsearch::Embedded::Cluster.new
+
+OptionParser.new do |opts|
+
+  opts.on '-w', '--working-dir=WORKING_DIR', 'Elasticsearch working directory (default is system temporary directory i.e. Dir.tmpdir)' do |wd|
+    cluster.working_dir = File.expand_path(wd)
+  end
+
+  opts.on '-p', '--port=PORT', Integer, 'Port on which to run elasticsearch (default: 9250)' do |p|
+    cluster.port = p
+  end
+
+  opts.on '-c', '--cluster-name=NAME', 'Cluster name (default: elasticsearch_test)' do |cn|
+    cluster.cluster_name = cn
+  end
+
+  opts.on '-n', '--nodes=NODES', Integer, 'Number of nodes started in the cluster (default: 1)' do |n|
+    cluster.nodes = n
+  end
+
+  opts.on '--timeout=TIMEOUT', Integer, 'Timeout when starting the cluster (default: 30)' do |t|
+    cluster.timeout = t
+  end
+
+  opts.on '-V VERSION', "Elasticsearch version to use (default #{Elasticsearch::Embedded::Downloader::DEFAULT_VERSION})" do |v|
+    cluster.version = v
+  end
+
+  opts.on_tail '-h', '--help', 'Show this message' do
+    puts opts
+    exit
+  end
+
+  opts.on_tail '-v', '--version', 'Show gem version' do
+    puts "Gem version: #{Elasticsearch::Embedded::VERSION}"
+    puts "Elasticsearch version: #{cluster.version}"
+    exit
+  end
+
+end.parse!
+
+puts "Starting ES #{cluster.version} cluster with working directory set to #{cluster.working_dir}. Process pid is #{$$}"
+cluster.start_and_wait!

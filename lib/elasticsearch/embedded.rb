@@ -1,2 +1,10 @@
 require 'elasticsearch/embedded/version'
-require 'elasticsearch/embedded/downloader'
+
+module Elasticsearch
+  module Embedded
+
+    autoload :Downloader, 'elasticsearch/embedded/downloader'
+    autoload :Cluster,  'elasticsearch/embedded/cluster'
+
+  end
+end
