@@ -62,6 +62,8 @@ module Elasticsearch
         end
         # ensure main executable has execute permission
         File.chmod(0755, executable)
+        # Create folder for log files
+        FileUtils.mkdir(File.join(dist_folder, 'logs'))
       end
 
       def downloaded?
@@ -69,8 +71,11 @@ module Elasticsearch
       end
 
       def extracted?
-        dest_folder = final_path.gsub /\.zip\Z/, ''
-        File.directory?(dest_folder)
+        File.directory?(dist_folder)
+      end
+
+      def dist_folder
+        @dist_folder ||= final_path.gsub /\.zip\Z/, ''
       end
 
       def final_path
@@ -82,7 +87,7 @@ module Elasticsearch
       end
 
       def executable
-        @executable ||= File.join(working_dir, "elasticsearch-#{version}", 'bin', 'elasticsearch')
+        @executable ||= File.join(dist_folder, 'bin', 'elasticsearch')
       end
 
       # Build a progress bar to download elasticsearch

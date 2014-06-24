@@ -105,10 +105,7 @@ describe Elasticsearch::Embedded::Downloader do
       end
 
       it 'should extract zip archive when into final folder' do
-        expect {
-          subject.perform
-          # Fake archive contains 3 elements
-        }.to change { Dir[File.join(dist_folder, '**', '**')].count }.to(3)
+        expect { subject.perform }.to change { Dir[File.join(dist_folder, '**', '**')].count }
       end
 
       it 'should not extract zip archive when final folder is already present' do
@@ -119,6 +116,12 @@ describe Elasticsearch::Embedded::Downloader do
       it 'should make bin/elasticsearch executable' do
         subject.perform
         expect(File.executable?(executable)).to be_truthy
+      end
+
+      it 'should create a folder for log files' do
+        expect {
+          subject.perform
+        }.to change { File.directory?(File.join(dist_folder, 'logs')) }
       end
 
     end
