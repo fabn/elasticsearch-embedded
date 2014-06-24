@@ -28,42 +28,7 @@ module Elasticsearch
       def perform
         download_file
         extract_file
-        configure_cluster_command
         self
-      end
-
-      private
-
-      def download_file
-        return if downloaded?
-        open(final_path, 'wb') do |target|
-          download_options = {
-              content_length_proc: ->(t) { build_progress_bar(t) },
-              progress_proc: ->(s) { increment_progress(s) }
-          }
-          # direct call here to avoid spec issues with Kernel#open
-          distfile = OpenURI.open_uri("https://download.elasticsearch.org/elasticsearch/elasticsearch/elasticsearch-#{version}.zip", download_options)
-          target << distfile.read
-        end
-      end
-
-      def configure_cluster_command
-        ENV['TEST_CLUSTER_COMMAND'] = executable
-      end
-
-      def extract_file
-        return if extracted?
-        Dir.chdir(working_dir) do
-          # Extract archive in path, after block CWD is restored
-          Zip::File.open(final_path) do |zip_file|
-            # Extract all entries into working dir
-            zip_file.each(&:extract)
-          end
-        end
-        # ensure main executable has execute permission
-        File.chmod(0755, executable)
-        # Create folder for log files
-        FileUtils.mkdir(File.join(dist_folder, 'logs'))
       end
 
       def downloaded?
@@ -88,6 +53,36 @@ module Elasticsearch
 
       def executable
         @executable ||= File.join(dist_folder, 'bin', 'elasticsearch')
+      end
+
+      private
+
+      def download_file
+        return if downloaded?
+        open(final_path, 'wb') do |target|
+          download_options = {
+              content_length_proc: ->(t) { build_progress_bar(t) },
+              progress_proc: ->(s) { increment_progress(s) }
+          }
+          # direct call here to avoid spec issues with Kernel#open
+          distfile = OpenURI.open_uri("https://download.elasticsearch.org/elasticsearch/elasticsearch/elasticsearch-#{version}.zip", download_options)
+          target << distfile.read
+        end
+      end
+
+      def extract_file
+        return if extracted?
+        Dir.chdir(working_dir) do
+          # Extract archive in path, after block CWD is restored
+          Zip::File.open(final_path) do |zip_file|
+            # Extract all entries into working dir
+            zip_file.each(&:extract)
+          end
+        end
+        # ensure main executable has execute permission
+        File.chmod(0755, executable)
+        # Create folder for log files
+        FileUtils.mkdir(File.join(dist_folder, 'logs'))
       end
 
       # Build a progress bar to download elasticsearch
