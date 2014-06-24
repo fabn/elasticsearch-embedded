@@ -48,7 +48,7 @@ module Elasticsearch
       end
 
       def configure_cluster_command
-        ENV['TEST_CLUSTER_COMMAND'] = File.join(working_dir, "elasticsearch-#{version}", 'bin', 'elasticsearch')
+        ENV['TEST_CLUSTER_COMMAND'] = executable
       end
 
       def extract_file
@@ -60,6 +60,8 @@ module Elasticsearch
             zip_file.each(&:extract)
           end
         end
+        # ensure main executable has execute permission
+        File.chmod(0755, executable)
       end
 
       def downloaded?
@@ -77,6 +79,10 @@ module Elasticsearch
 
       def working_dir
         @working_dir ||= File.realpath(path)
+      end
+
+      def executable
+        @executable ||= File.join(working_dir, "elasticsearch-#{version}", 'bin', 'elasticsearch')
       end
 
       # Build a progress bar to download elasticsearch

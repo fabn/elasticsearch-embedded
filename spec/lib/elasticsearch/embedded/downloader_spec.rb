@@ -67,6 +67,7 @@ describe Elasticsearch::Embedded::Downloader do
     let(:path) { File.realpath(Dir.tmpdir) }
     let(:zip_file) { File.join(path, "elasticsearch-#{subject.version}.zip") }
     let(:dist_folder) { File.join(path, "elasticsearch-#{subject.version}") }
+    let(:executable) { File.join(dist_folder, 'bin', 'elasticsearch') }
     subject { Elasticsearch::Embedded::Downloader.new(path: path) }
 
     before do
@@ -113,6 +114,11 @@ describe Elasticsearch::Embedded::Downloader do
       it 'should not extract zip archive when final folder is already present' do
         FileUtils.mkdir_p dist_folder
         expect { subject.perform }.to_not change { Dir[File.join(dist_folder, '**', '**')] }
+      end
+
+      it 'should make bin/elasticsearch executable' do
+        subject.perform
+        expect(File.executable?(executable)).to be_truthy
       end
 
     end
