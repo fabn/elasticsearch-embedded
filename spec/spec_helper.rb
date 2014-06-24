@@ -3,6 +3,11 @@ require 'elasticsearch-embedded'
 # Used to stub calls to filesystem
 require 'fakefs/spec_helpers'
 
+# Used in integration tests
+require 'elasticsearch'
+# Activate gem behavior with :elasticsearch tagged specs
+Elasticsearch::Embedded::RSpec.configure
+
 RSpec.configure do |config|
   config.filter_run :focus
   config.run_all_when_everything_filtered = true

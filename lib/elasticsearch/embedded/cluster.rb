@@ -1,4 +1,5 @@
 require 'elasticsearch/extensions/test/cluster'
+require 'net/http'
 
 module Elasticsearch
   module Embedded
@@ -15,6 +16,7 @@ module Elasticsearch
       # Assign default values to options
       def initialize
         @nodes = 1
+        @port = 9250
         @version = Downloader::DEFAULT_VERSION
         @working_dir = Downloader::TEMPORARY_PATH
       end
@@ -58,15 +60,18 @@ module Elasticsearch
       end
 
       # Remove all indices in the cluster
-      def clear_all_indices!
-        clear_index! :_all
+      #
+      # @return [Array<Net::HTTPResponse>] raw http responses
+      def delete_all_indices!
+        delete_index! :_all
       end
 
-      # Remove the given index
-      def clear_index!(*args)
-        args.each do
-          # TODO remove the index
-        end
+      # Remove the indices given as args
+      #
+      # @param [Array<String,Symbol>] args list of indices to delet
+      # @return [Array<Net::HTTPResponse>] raw http responses
+      def delete_index!(*args)
+        args.map { |index| http_object.request(Net::HTTP::Delete.new("/#{index}")) }
       end
 
       private
@@ -89,6 +94,11 @@ module Elasticsearch
             # command to run is taken from downloader object
             command: downloader.executable,
         }
+      end
+
+      # Return an http object to make requests
+      def http_object
+        @http ||= Net::HTTP.new('localhost', port)
       end
 
       # Register a shutdown proc which handles INT, TERM and QUIT signals
