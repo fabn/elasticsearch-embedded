@@ -1,3 +1,5 @@
+require 'coveralls'
+Coveralls.wear!
 # Main gem file
 require 'elasticsearch-embedded'
 # Used to stub calls to filesystem

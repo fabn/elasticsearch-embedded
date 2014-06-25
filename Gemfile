@@ -5,3 +5,6 @@ gemspec
 
 # Contain a fix for open-uri
 gem 'fakefs', github: 'defunkt/fakefs'
+
+# used for code coverage reports
+gem 'coveralls', require: false
