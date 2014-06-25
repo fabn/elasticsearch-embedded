@@ -7,7 +7,7 @@ cluster = Elasticsearch::Embedded::Cluster.new
 
 OptionParser.new do |opts|
 
-  opts.on '-w', '--working-dir=WORKING_DIR', 'Elasticsearch working directory (default is system temporary directory i.e. Dir.tmpdir)' do |wd|
+  opts.on '-w', '--working-dir=WORKING_DIR', 'Elasticsearch working directory (default: `Dir.tmpdir` or `Rails.root.join("tmp")` within rails applications)' do |wd|
     cluster.working_dir = File.expand_path(wd)
   end
 
