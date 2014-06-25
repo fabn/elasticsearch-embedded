@@ -27,8 +27,8 @@ OptionParser.new do |opts|
     cluster.timeout = t
   end
 
-  opts.on '-l', '--log-level=LEVEL', 'Logger verbosity, numbers allowed (1..5) or level names (DEBUG, INFO, WARN, ERROR, FATAL)' do |l|
-    cluster.verbosity(l)
+  opts.on '-l', '--log-level=LEVEL', "Logger verbosity, numbers allowed (1..5) or level names (#{Logging::LEVELS.keys.join(', ')})" do |l|
+    ::Elasticsearch::Embedded.verbosity(l)
   end
 
   opts.on '-V VERSION', "Elasticsearch version to use (default #{Elasticsearch::Embedded::Downloader::DEFAULT_VERSION})" do |v|

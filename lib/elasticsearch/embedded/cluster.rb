@@ -2,7 +2,6 @@ require 'timeout'
 require 'net/http'
 require 'uri'
 require 'json'
-require 'logger'
 
 module Elasticsearch
   module Embedded
@@ -10,12 +9,8 @@ module Elasticsearch
     # Class used to manage a local cluster of elasticsearch nodes
     class Cluster
 
-      # Logger instance to output messages
-      def logger
-        @logger ||= Logger.new(STDOUT).tap do |l|
-          l.level = Logger::INFO
-        end
-      end
+      # Make logger method available
+      include Logging.globally
 
       # Options for cluster
       attr_accessor :port, :cluster_name, :nodes, :timeout, :persistent, :additional_options
@@ -58,8 +53,8 @@ module Elasticsearch
         logger.warn 'Cluster is still starting, wait until startup is complete before sending shutdown command' if @pids_lock.locked?
         @pids_lock.synchronize do
           http_object.post('/_shutdown', nil)
-          Timeout.timeout(2) { Process.waitall }
           logger.debug 'Cluster stopped succesfully using shutdown api'
+          Timeout.timeout(2) { Process.waitall }
           # Reset running pids reader
           @pids = []
         end
@@ -114,19 +109,6 @@ module Elasticsearch
         }
         # Create the template on cluster
         http_object.put('/_template/development_template', JSON.dump(development_settings))
-      end
-
-      # Configure class logger verbosity
-      # @param [String,Fixnum] level accepts strings levels or numbers
-      def verbosity(level)
-        case level.to_s
-          when /\A\d\Z/
-            logger.level = level.to_i
-          when /\A(#{%w(DEBUG INFO WARN ERROR FATAL).join('|')})\Z/i
-            logger.level = Logger.const_get(level.to_s.upcase)
-          else
-            logger.level = Logger::INFO
-        end
       end
 
       private

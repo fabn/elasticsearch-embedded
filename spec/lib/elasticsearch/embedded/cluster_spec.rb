@@ -35,28 +35,6 @@ describe Elasticsearch::Embedded::Cluster, :elasticsearch do
 
   end
 
-  describe '#verbosity' do
-
-    it 'should allow numbers' do
-      expect {
-        subject.verbosity(2)
-      }.to change { subject.logger.level }.from(Logger::INFO).to(Logger::WARN)
-    end
-
-    it 'should allow level strings' do
-      expect {
-        subject.verbosity('warn')
-      }.to change { subject.logger.level }.from(Logger::INFO).to(Logger::WARN)
-    end
-
-    it 'should keep level to info on invalid levels' do
-      expect {
-        subject.verbosity('foo')
-      }.to_not change { subject.logger.level }
-    end
-
-  end
-
   describe 'Development template' do
 
     before do
