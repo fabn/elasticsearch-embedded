@@ -47,13 +47,8 @@ module Elasticsearch
 
       # Stop the cluster and return after child processes are dead
       def stop
-        stop_cluster
-      end
-
-      def stop_and_wait!
-        stop
         # Wait for all child processes to end then return
-        Process.waitall
+        stop_cluster
       end
 
       # Return running instances pids, borrowed from code in Elasticsearch::Extensions::Test::Cluster.
