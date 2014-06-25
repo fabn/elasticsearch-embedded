@@ -31,6 +31,10 @@ OptionParser.new do |opts|
     cluster.version = v
   end
 
+  opts.on '-P', 'Configure cluster to persist data across restarts' do |p|
+    cluster.persistent = !!p
+  end
+
   opts.on_tail '-h', '--help', 'Show this message' do
     puts opts
     exit

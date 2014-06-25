@@ -8,7 +8,7 @@ module Elasticsearch
     class Cluster
 
       # Options for cluster
-      attr_accessor :port, :cluster_name, :nodes, :timeout
+      attr_accessor :port, :cluster_name, :nodes, :timeout, :persistent
 
       # Options for downloader
       attr_accessor :downloader, :version, :working_dir
@@ -85,14 +85,6 @@ module Elasticsearch
       private
 
       # Used as arguments for Elasticsearch::Extensions::Test::Cluster methods
-      # Following args still missing
-      # data args are needed to implement persistence across restarts
-      # arguments[:gateway_type] ||= 'none'
-      # arguments[:index_store]  ||= 'memory'
-      # arguments[:path_data]    ||= ENV['TEST_CLUSTER_DATA'] || '/tmp'
-      # arguments[:es_params]    ||= ENV['TEST_CLUSTER_PARAMS'] || ''
-      # arguments[:path_work]    ||= '/tmp'
-      # arguments[:node_name]    ||= 'node'
       def cluster_options
         {
             port: port,
@@ -101,7 +93,19 @@ module Elasticsearch
             timeout: timeout,
             # command to run is taken from downloader object
             command: downloader.executable,
-        }
+        }.merge(persistency_options)
+      end
+
+      # Return options for data persistency
+      def persistency_options
+        persistent ?
+            {
+                gateway_type: 'local',
+                index_store: 'mmapfs',
+                path_data: File.join(downloader.working_dir, 'cluster_data'),
+                path_work: File.join(downloader.working_dir, 'cluster_workdir'),
+            } :
+            {}
       end
 
       # Return an http object to make requests

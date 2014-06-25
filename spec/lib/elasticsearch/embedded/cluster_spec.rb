@@ -36,4 +36,40 @@ describe Elasticsearch::Embedded::Cluster, :elasticsearch do
 
   end
 
+  describe 'Cluster persistency' do
+
+    let(:persistent_cluster) { Elasticsearch::Embedded::Cluster.new }
+    let(:port) { cluster.port + 10 }
+    let(:client) { Elasticsearch::Client.new host: "localhost:#{port}" }
+
+    before do
+      persistent_cluster.persistent = true
+      persistent_cluster.cluster_name = 'persistent_cluster'
+      persistent_cluster.port = port
+    end
+
+    after do
+      # Ensure additional cluster is stopped when test is finished
+      persistent_cluster.stop if persistent_cluster.running?
+    end
+
+    it 'should persist data across restarts' do
+      persistent_cluster.start
+      client.indices.create index: 'persistent', body: {
+          settings: {
+              index: {
+                  number_of_shards: 1,
+                  number_of_replicas: 0
+              },
+          }
+      }
+      client.index index: 'persistent', type: 'test-type', id: 1, body: {title: 'Test'}, refresh: true
+      expect {
+        persistent_cluster.stop
+        persistent_cluster.start
+      }.to_not change { client.indices.get_settings.count }
+    end
+
+  end
+
 end
