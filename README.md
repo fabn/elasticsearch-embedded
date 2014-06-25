@@ -36,6 +36,7 @@ Usage: embedded-elasticsearch [options]
         --timeout=TIMEOUT            Timeout when starting the cluster (default: 30)
     -l, --log-level=LEVEL            Logger verbosity, numbers allowed (1..5) or level names (debug, info, warn, error, fatal)
     -q, --quiet                      Disable stdout logging
+    -S, --show-es-output             Enable elasticsearch output in stdout
     -V VERSION                       Elasticsearch version to use (default 1.2.1)
     -P                               Configure cluster to persist data across restarts
     -h, --help                       Show this message

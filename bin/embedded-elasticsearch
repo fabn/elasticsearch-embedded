@@ -35,6 +35,10 @@ OptionParser.new do |opts|
     ::Elasticsearch::Embedded.mute!
   end
 
+  opts.on '-S', '--show-es-output', 'Enable elasticsearch output in stdout' do
+    cluster.verbose = true
+  end
+
   opts.on '-V VERSION', "Elasticsearch version to use (default #{Elasticsearch::Embedded::Downloader::DEFAULT_VERSION})" do |v|
     cluster.version = v
   end

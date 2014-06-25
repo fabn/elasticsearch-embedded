@@ -13,7 +13,7 @@ module Elasticsearch
       include Logging.globally
 
       # Options for cluster
-      attr_accessor :port, :cluster_name, :nodes, :timeout, :persistent, :additional_options
+      attr_accessor :port, :cluster_name, :nodes, :timeout, :persistent, :additional_options, :verbose
 
       # Options for downloader
       attr_accessor :downloader, :version, :working_dir
@@ -131,7 +131,7 @@ module Elasticsearch
             '-D es.node.test=true',
             '-D es.node.bench=true',
             additional_options,
-            '> /dev/null' # TODO make cluster output optin
+            verbose ? nil : '> /dev/null'
         ].compact.join(' ')
       end
 
