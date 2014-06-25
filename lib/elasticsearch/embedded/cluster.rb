@@ -142,7 +142,7 @@ module Elasticsearch
       def start_cluster
         if running?
           print '[!] Elasticsearch cluster already running'
-          wait_for_green(port, timeout)
+          wait_for_green(timeout)
           return false
         end
         # Launch single node instances
@@ -152,7 +152,7 @@ module Elasticsearch
           STDERR.puts '', '[!!!] Process failed to start (see output above)'
           exit(1)
         end
-        wait_for_green(port, timeout)
+        wait_for_green(timeout)
         true
       end
 
@@ -225,8 +225,8 @@ module Elasticsearch
       #
       # @return Boolean
       #
-      def wait_for_green(port = 9250, timeout = 60)
-        __wait_for_status('green', port, timeout)
+      def wait_for_green(timeout = 60)
+        __wait_for_status('green', timeout)
       end
 
       # Blocks the process and waits for the cluster to be in a "green" state.
@@ -234,20 +234,17 @@ module Elasticsearch
       # Prints information about the cluster on STDOUT if the cluster is available.
       #
       # @param status  [String]  The status to wait for (yellow, green)
-      # @param port    [Integer] The port on which the cluster is reachable
       # @param timeout [Integer] The explicit timeout for the operation
       #
       # @api private
       #
       # @return Boolean
       #
-      def __wait_for_status(status='green', port = 9250, timeout = 30)
-        uri = URI("http://localhost:#{port}/_cluster/health?wait_for_status=#{status}")
-
+      def __wait_for_status(status='green', timeout = 30)
         Timeout::timeout(timeout) do
           loop do
             response = begin
-              JSON.parse(Net::HTTP.get(uri))
+              JSON.parse(http_object.get("/_cluster/health?wait_for_status=#{status}").body)
             rescue Exception => e
               puts e.inspect if ENV['DEBUG']
               nil
@@ -256,7 +253,7 @@ module Elasticsearch
             puts response.inspect if ENV['DEBUG']
 
             if response && response['status'] == status && (nodes.nil? || nodes == response['number_of_nodes'].to_i)
-              __print_cluster_info(port) and break
+              __print_cluster_info and break
             end
 
             print '.'
@@ -271,10 +268,10 @@ module Elasticsearch
       #
       # @api private
       #
-      def __print_cluster_info(port)
-        health = JSON.parse(Net::HTTP.get(URI("http://localhost:#{port}/_cluster/health")))
-        nodes = JSON.parse(Net::HTTP.get(URI("http://localhost:#{port}/_nodes/process,http")))
-        master = JSON.parse(Net::HTTP.get(URI("http://localhost:#{port}/_cluster/state")))['master_node']
+      def __print_cluster_info
+        health = JSON.parse(http_object.get('/_cluster/health').body)
+        nodes = JSON.parse(http_object.get('/_nodes/process,http').body)
+        master = JSON.parse(http_object.get('/_cluster/state').body)['master_node']
 
         puts "\n",
              ('-'*80),
