@@ -137,9 +137,8 @@ module Elasticsearch
             "-D es.http.port=#{port + (instance_number - 1)}",
             "-D es.gateway.type=#{cluster_options[:gateway_type]}",
             "-D es.index.store.type=#{cluster_options[:index_store]}",
-            # TODO parametrize with instance_number
-            "-D es.path.data=#{cluster_options[:path_data]}",
-            "-D es.path.work=#{cluster_options[:path_work]}",
+            "-D es.path.data=#{cluster_options[:path_data]}-#{instance_number}",
+            "-D es.path.work=#{cluster_options[:path_work]}-#{instance_number}",
             '-D es.network.host=0.0.0.0',
             '-D es.discovery.zen.ping.multicast.enabled=true',
             '-D es.script.disable_dynamic=false',
@@ -214,8 +213,8 @@ module Elasticsearch
             # persistency options
             gateway_type: persistent ? 'local' : 'none',
             index_store: persistent ? 'mmapfs' : 'memory',
-            path_data: persistent ? File.join(downloader.working_dir, 'cluster_data') : Dir.tmpdir,
-            path_work: persistent ? File.join(downloader.working_dir, 'cluster_workdir') : Dir.tmpdir,
+            path_data: File.join(persistent ? downloader.working_dir : Dir.tmpdir, 'cluster_data'),
+            path_work: File.join(persistent ? downloader.working_dir : Dir.tmpdir, 'cluster_workdir'),
         }
       end
 
