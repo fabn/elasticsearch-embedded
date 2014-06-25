@@ -53,10 +53,19 @@ module Elasticsearch
         Process.waitall
       end
 
-      # Stop the cluster and return after child processes are dead
+      # Stop the cluster and return after all child processes are dead
       def stop
-        # Wait for all child processes to end then return
-        stop_cluster
+        begin
+          # Try to shutdown cluster using shutdown api
+          http_object.post('/_shutdown', nil)
+          Timeout.timeout(2) { Process.waitall }
+        rescue
+          # Send term signal if post request fails to all processes still alive after 2 seconds
+          (pids + nodes_pids).each { |pid| wait_or_kill(pid) }
+        ensure
+          # Reset running pids reader
+          @pids = []
+        end
       end
 
       # Return running instances pids, borrowed from code in Elasticsearch::Extensions::Test::Cluster.
@@ -173,20 +182,6 @@ module Elasticsearch
         true
       end
 
-      def stop_cluster
-        # Try to shutdown cluster using shutdown api
-        begin
-          http_object.post('/_shutdown', nil)
-          Timeout.timeout(2) { Process.waitall }
-        rescue
-          # Send term signal if post request fails to all processes still alive after 2 seconds
-          (pids + nodes_pids).each { |pid| wait_or_kill(pid) }
-        ensure
-          # Reset running pids reader
-          @pids = []
-        end
-      end
-
       def wait_or_kill(pid)
         begin
           Timeout::timeout(2) do
@@ -225,12 +220,8 @@ module Elasticsearch
 
       # Register a shutdown proc which handles INT, TERM and QUIT signals
       def register_shutdown_handler
-        stopper = ->(sig) do
-          logger.info "Received SIG#{Signal.signame(sig)}, quitting"
-          stop
-        end
         # Stop cluster on Ctrl+C, TERM (foreman) or QUIT (other)
-        [:TERM, :INT, :QUIT].each { |sig| Signal.trap(sig, &stopper) }
+        [:TERM, :INT, :QUIT].each { |sig| Signal.trap(sig, lambda { stop }) }
       end
 
       # Waits until the cluster is green and prints information
