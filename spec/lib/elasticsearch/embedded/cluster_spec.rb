@@ -36,6 +36,31 @@ describe Elasticsearch::Embedded::Cluster, :elasticsearch do
 
   end
 
+  describe 'Development template' do
+
+    before do
+      # It's not applied by default on non persistent clusters
+      cluster.apply_development_template!
+      client.indices.create index: 'any_index'
+    end
+
+    let(:index_settings) { client.indices.get_settings(index: 'any_index')['any_index']['settings']['index'] }
+
+    # Do not leave status across tests
+    after(:all) do
+      client.indices.delete_template name: 'development_template' if client.indices.get_template.has_key?('development_template')
+    end
+
+    it 'should configure 1 shard for each index' do
+      expect(index_settings).to include('number_of_shards' => '1')
+    end
+
+    it 'should configure 0 replicas for each index' do
+      expect(index_settings).to include('number_of_replicas' => '0')
+    end
+
+  end
+
   describe 'Cluster persistency' do
 
     let(:persistent_cluster) { Elasticsearch::Embedded::Cluster.new }
@@ -55,19 +80,13 @@ describe Elasticsearch::Embedded::Cluster, :elasticsearch do
 
     it 'should persist data across restarts' do
       persistent_cluster.start
-      client.indices.create index: 'persistent', body: {
-          settings: {
-              index: {
-                  number_of_shards: 1,
-                  number_of_replicas: 0
-              },
-          }
-      }
+      # Index a document and trigger persistent index creation
       client.index index: 'persistent', type: 'test-type', id: 1, body: {title: 'Test'}, refresh: true
+      # Restart cluster and check index presence
       expect {
         persistent_cluster.stop
         persistent_cluster.start
-      }.to_not change { client.indices.get_settings.count }
+      }.to_not change { client.indices.get_settings }
     end
 
   end

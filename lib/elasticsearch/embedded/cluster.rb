@@ -25,6 +25,7 @@ module Elasticsearch
       def start
         @downloader = Downloader.download(version: version, path: working_dir)
         Elasticsearch::Extensions::Test::Cluster.start(cluster_options)
+        apply_development_template! if persistent
       end
 
       # Start an elasticsearch cluster and wait until running, also register
@@ -80,6 +81,19 @@ module Elasticsearch
       # @return [Array<Net::HTTPResponse>] raw http responses
       def delete_index!(*args)
         args.map { |index| http_object.request(Net::HTTP::Delete.new("/#{index}")) }
+      end
+
+      # Used for persistent clusters, otherwise cluster won't get green state because of missing replicas
+      def apply_development_template!
+        development_settings = {
+            template: '*',
+            settings: {
+                number_of_shards: 1,
+                number_of_replicas: 0,
+            }
+        }
+        # Create the template on cluster
+        http_object.put('/_template/development_template', JSON.dump(development_settings))
       end
 
       private
