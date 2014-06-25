@@ -1,5 +1,7 @@
-require 'elasticsearch/extensions/test/cluster'
+require 'timeout'
 require 'net/http'
+require 'uri'
+require 'json'
 
 module Elasticsearch
   module Embedded
@@ -13,18 +15,24 @@ module Elasticsearch
       # Options for downloader
       attr_accessor :downloader, :version, :working_dir
 
+      # Runtime variables
+      attr_reader :pids
+
       # Assign default values to options
       def initialize
         @nodes = 1
         @port = 9250
         @version = Downloader::DEFAULT_VERSION
         @working_dir = Downloader::TEMPORARY_PATH
+        @timeout = 30
+        @cluster_name = 'elasticsearch_test'
+        @pids = []
       end
 
-      # Start an elasticsearch cluster and return
+      # Start an elasticsearch cluster and return immediately
       def start
         @downloader = Downloader.download(version: version, path: working_dir)
-        Elasticsearch::Extensions::Test::Cluster.start(cluster_options)
+        start_cluster
         apply_development_template! if persistent
       end
 
@@ -37,15 +45,25 @@ module Elasticsearch
         Process.waitall
       end
 
-      # Stop the cluster and return
+      # Stop the cluster and return after child processes are dead
       def stop
-        Elasticsearch::Extensions::Test::Cluster.stop(port: port)
+        stop_cluster
       end
 
       def stop_and_wait!
         stop
         # Wait for all child processes to end then return
         Process.waitall
+      end
+
+      # Return running instances pids, borrowed from code in Elasticsearch::Extensions::Test::Cluster.
+      # This method returns elasticsearch nodes pids and not spawned command pids, they are different because of
+      # elasticsearch shell wrapper used to launch the daemon
+      def nodes_pids
+        # Try to fetch node info from running cluster
+        nodes = JSON.parse(http_object.get('/_nodes/?process').body) rescue []
+        # Fetch pids from returned data
+        nodes.empty? ? nodes : nodes['nodes'].map { |_, info| info['process']['id'] }
       end
 
       # Start server unless it's running
@@ -57,15 +75,9 @@ module Elasticsearch
       #
       # @return Boolean
       def running?
-        Elasticsearch::Extensions::Test::Cluster.running? on: port, as: cluster_name
-      end
-
-      # Return running instances pids, borrowed from code in Elasticsearch::Extensions::Test::Cluster
-      def pids
-        # Try to fetch node info from running cluster
-        nodes = JSON.parse(Net::HTTP.get(URI("http://localhost:#{port}/_nodes/?process"))) rescue []
-        # Fetch pids from returned data
-        nodes.empty? ? nodes : nodes['nodes'].map { |_, info| info['process']['id'] }
+        cluster_health = Timeout::timeout(0.25) { __get_cluster_health } rescue nil
+        # Response is present, cluster name is the same and number of nodes is the same
+        !!cluster_health && cluster_health['cluster_name'] == cluster_name && cluster_health['number_of_nodes'] == nodes
       end
 
       # Remove all indices in the cluster
@@ -98,7 +110,81 @@ module Elasticsearch
 
       private
 
-      # Used as arguments for Elasticsearch::Extensions::Test::Cluster methods
+      # Build command line to launch an instance
+      def build_command_line(instance_number)
+        # TODO add additional params as option
+        [
+            downloader.executable,
+            '-D es.foreground=yes',
+            "-D es.cluster.name=#{cluster_name}",
+            "-D es.node.name=node-#{instance_number}",
+            "-D es.http.port=#{port + (instance_number - 1)}",
+            "-D es.gateway.type=#{cluster_options[:gateway_type]}",
+            "-D es.index.store.type=#{cluster_options[:index_store]}",
+            # TODO parametrize with instance_number
+            "-D es.path.data=#{cluster_options[:path_data]}",
+            "-D es.path.work=#{cluster_options[:path_work]}",
+            '-D es.network.host=0.0.0.0',
+            '-D es.discovery.zen.ping.multicast.enabled=true',
+            '-D es.script.disable_dynamic=false',
+            '-D es.node.test=true',
+            '-D es.node.bench=true',
+            '> /dev/null' # TODO make cluster output optin
+        ].join(' ')
+      end
+
+      # Spawn an elasticsearch process and return its pid
+      def launch_instance(instance_number = 1)
+        # Start the process within a new process group to avoid signal propagation
+        Process.spawn(build_command_line(instance_number), pgroup: true).tap { |pid| Process.detach pid }
+      end
+
+      def start_cluster
+        if running?
+          print '[!] Elasticsearch cluster already running'
+          wait_for_green(port, timeout)
+          return false
+        end
+        # Launch single node instances
+        @pids = 1.upto(nodes).map { |i| launch_instance(i) }
+        # Check for proceses running
+        if `ps -p #{pids.join(' ')}`.split("\n").size < nodes + 1
+          STDERR.puts '', '[!!!] Process failed to start (see output above)'
+          exit(1)
+        end
+        wait_for_green(port, timeout)
+        true
+      end
+
+      def stop_cluster
+        # Try to shutdown cluster using shutdown api
+        begin
+          http_object.post('/_shutdown', nil)
+          Timeout.timeout(2) { Process.waitall }
+        rescue
+          # Send term signal if post request fails to all processes still alive after 2 seconds
+          (pids + nodes_pids).each { |pid| wait_or_kill(pid) }
+        ensure
+          # Reset running pids reader
+          @pids = []
+        end
+      end
+
+      def wait_or_kill(pid)
+        begin
+          Timeout::timeout(2) do
+            Process.kill(:TERM, pid)
+            Process.waitpid(pid)
+          end
+        rescue Errno::ESRCH, Errno::ECHILD
+          # No such process or no child => process is already dead
+        rescue Timeout::Error
+          # Process still running after 2 seconds of waitpid sending kill to it
+          Process.kill(:KILL, pid) rescue nil
+        end
+      end
+
+      # Used as arguments for building command line to launch elasticsearch
       def cluster_options
         {
             port: port,
@@ -107,19 +193,12 @@ module Elasticsearch
             timeout: timeout,
             # command to run is taken from downloader object
             command: downloader.executable,
-        }.merge(persistency_options)
-      end
-
-      # Return options for data persistency
-      def persistency_options
-        persistent ?
-            {
-                gateway_type: 'local',
-                index_store: 'mmapfs',
-                path_data: File.join(downloader.working_dir, 'cluster_data'),
-                path_work: File.join(downloader.working_dir, 'cluster_workdir'),
-            } :
-            {}
+            # persistency options
+            gateway_type: persistent ? 'local' : 'none',
+            index_store: persistent ? 'mmapfs' : 'memory',
+            path_data: persistent ? File.join(downloader.working_dir, 'cluster_data') : Dir.tmpdir,
+            path_work: persistent ? File.join(downloader.working_dir, 'cluster_workdir') : Dir.tmpdir,
+        }
       end
 
       # Return an http object to make requests
@@ -135,6 +214,87 @@ module Elasticsearch
         end
         # Stop cluster on Ctrl+C, TERM (foreman) or QUIT (other)
         [:TERM, :INT, :QUIT].each { |sig| Signal.trap(sig, &stopper) }
+      end
+
+      # Waits until the cluster is green and prints information
+      #
+      # @example Print the information about the default cluster
+      #     Elasticsearch::Extensions::Test::Cluster.wait_for_green
+      #
+      # @param (see #__wait_for_status)
+      #
+      # @return Boolean
+      #
+      def wait_for_green(port = 9250, timeout = 60)
+        __wait_for_status('green', port, timeout)
+      end
+
+      # Blocks the process and waits for the cluster to be in a "green" state.
+      #
+      # Prints information about the cluster on STDOUT if the cluster is available.
+      #
+      # @param status  [String]  The status to wait for (yellow, green)
+      # @param port    [Integer] The port on which the cluster is reachable
+      # @param timeout [Integer] The explicit timeout for the operation
+      #
+      # @api private
+      #
+      # @return Boolean
+      #
+      def __wait_for_status(status='green', port = 9250, timeout = 30)
+        uri = URI("http://localhost:#{port}/_cluster/health?wait_for_status=#{status}")
+
+        Timeout::timeout(timeout) do
+          loop do
+            response = begin
+              JSON.parse(Net::HTTP.get(uri))
+            rescue Exception => e
+              puts e.inspect if ENV['DEBUG']
+              nil
+            end
+
+            puts response.inspect if ENV['DEBUG']
+
+            if response && response['status'] == status && (nodes.nil? || nodes == response['number_of_nodes'].to_i)
+              __print_cluster_info(port) and break
+            end
+
+            print '.'
+            sleep 1
+          end
+        end
+
+        true
+      end
+
+      # Print information about the cluster on STDOUT
+      #
+      # @api private
+      #
+      def __print_cluster_info(port)
+        health = JSON.parse(Net::HTTP.get(URI("http://localhost:#{port}/_cluster/health")))
+        nodes = JSON.parse(Net::HTTP.get(URI("http://localhost:#{port}/_nodes/process,http")))
+        master = JSON.parse(Net::HTTP.get(URI("http://localhost:#{port}/_cluster/state")))['master_node']
+
+        puts "\n",
+             ('-'*80),
+             'Cluster: '.ljust(20) + health['cluster_name'].to_s,
+             'Status:  '.ljust(20) + health['status'].to_s,
+             'Nodes:   '.ljust(20) + health['number_of_nodes'].to_s
+
+        nodes['nodes'].each do |id, info|
+          m = id == master ? '+' : '-'
+          puts ''.ljust(20) +
+                   "#{m} #{info['name']} | version: #{info['version']}, pid: #{info['process']['id']}, address: #{info['http']['bound_address']}"
+        end
+      end
+
+      # Tries to load cluster health information
+      #
+      # @api private
+      #
+      def __get_cluster_health
+        JSON.parse(http_object.get('/_cluster/health').body) rescue nil
       end
 
     end

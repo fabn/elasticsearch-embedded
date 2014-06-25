@@ -27,10 +27,18 @@ describe Elasticsearch::Embedded::Cluster, :elasticsearch do
       expect(cluster.pids).to_not be_empty
     end
 
-    it 'should return an empty array on errors' do
+    it 'should return an empty array when not started' do
       not_started = Elasticsearch::Embedded::Cluster.new
-      not_started.port = 50000 # Nobody should listen on this port
       expect(not_started.pids).to eq([])
+    end
+
+  end
+
+  describe '#nodes_pids' do
+
+    it 'should return a list running java processes pids' do
+      expect(cluster.nodes_pids).to_not be_empty
+      expect(cluster.nodes_pids).to_not eq(cluster.pids)
     end
 
   end
