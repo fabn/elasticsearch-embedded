@@ -12,7 +12,6 @@ module Elasticsearch
           @client ||=
               case
                 when defined?(::Elasticsearch::Client)
-                  puts "Port is #{cluster.port}"
                   ::Elasticsearch::Client.new host: "localhost:#{cluster.port}"
                 else
                   URI("http://localhost:#{cluster.port}/")
