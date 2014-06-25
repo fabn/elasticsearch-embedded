@@ -34,7 +34,8 @@ Usage: embedded-elasticsearch [options]
     -c, --cluster-name=NAME          Cluster name (default: elasticsearch_test)
     -n, --nodes=NODES                Number of nodes started in the cluster (default: 1)
         --timeout=TIMEOUT            Timeout when starting the cluster (default: 30)
-    -l, --log-level=LEVEL            Logger verbosity, numbers allowed (1..5) or level names (DEBUG, INFO, WARN, ERROR, FATAL)
+    -l, --log-level=LEVEL            Logger verbosity, numbers allowed (1..5) or level names (debug, info, warn, error, fatal)
+    -q, --quiet                      Disable stdout logging
     -V VERSION                       Elasticsearch version to use (default 1.2.1)
     -P                               Configure cluster to persist data across restarts
     -h, --help                       Show this message

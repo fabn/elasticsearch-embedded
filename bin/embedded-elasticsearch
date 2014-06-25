@@ -31,6 +31,10 @@ OptionParser.new do |opts|
     ::Elasticsearch::Embedded.verbosity(l)
   end
 
+  opts.on '-q', '--quiet', 'Disable stdout logging' do
+    ::Elasticsearch::Embedded.mute!
+  end
+
   opts.on '-V VERSION', "Elasticsearch version to use (default #{Elasticsearch::Embedded::Downloader::DEFAULT_VERSION})" do |v|
     cluster.version = v
   end

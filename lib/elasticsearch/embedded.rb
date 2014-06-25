@@ -27,5 +27,10 @@ module Elasticsearch
 
     end
 
+    # Clear all logging appenders for ::Elasticsearch::Embedded log hierarchy
+    def self.mute!
+      Logging.logger[self].clear_appenders
+    end
+
   end
 end

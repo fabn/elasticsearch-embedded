@@ -2,9 +2,7 @@ describe Elasticsearch::Embedded do
 
   describe '.verbosity' do
 
-    after do
-      Logging.logger[subject].level = :info
-    end
+    after { Logging.logger[subject].level = :info }
 
     it 'should allow numbers' do
       expect {
@@ -22,6 +20,18 @@ describe Elasticsearch::Embedded do
       expect {
         subject.verbosity('foo')
       }.to_not change { Logging.logger[subject].level }
+    end
+
+  end
+
+  describe '.mute!' do
+
+    after { Logging.logger[subject].appenders = Logging.appenders.stdout }
+
+    it 'should remove all appenders' do
+      expect {
+        subject.mute!
+      }.to change { Logging.logger[subject].appenders }.to([])
     end
 
   end
