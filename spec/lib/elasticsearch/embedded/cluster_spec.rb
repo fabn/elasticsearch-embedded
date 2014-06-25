@@ -24,7 +24,6 @@ describe Elasticsearch::Embedded::Cluster, :elasticsearch do
   describe '#pids' do
 
     it 'should return a list running instances pids' do
-      puts cluster.pids
       expect(cluster.pids).to_not be_empty
     end
 
