@@ -27,16 +27,18 @@ Or install it yourself as:
 After gem installation you can run `embedded-elasticsearch` executable, it accepts some options for cluster configuration
 
 ```
-$ Usage: embedded-elasticsearch [options]
-      -w, --working-dir=WORKING_DIR    Elasticsearch working directory (default: `Dir.tmpdir` or `Rails.root.join("tmp")` within rails applications)
-      -p, --port=PORT                  Port on which to run elasticsearch (default: 9250)
-      -c, --cluster-name=NAME          Cluster name (default: elasticsearch_test)
-      -n, --nodes=NODES                Number of nodes started in the cluster (default: 1)
-          --timeout=TIMEOUT            Timeout when starting the cluster (default: 30)
-      -V VERSION                       Elasticsearch version to use (default 1.2.1)
-      -P                               Configure cluster to persist data across restarts
-      -h, --help                       Show this message
-      -v, --version                    Show gem version
+$ embedded-elasticsearch -h
+Usage: embedded-elasticsearch [options]
+    -w, --working-dir=WORKING_DIR    Elasticsearch working directory (default: `Dir.tmpdir` or `Rails.root.join("tmp")` within rails applications)
+    -p, --port=PORT                  Port on which to run elasticsearch (default: 9250)
+    -c, --cluster-name=NAME          Cluster name (default: elasticsearch_test)
+    -n, --nodes=NODES                Number of nodes started in the cluster (default: 1)
+        --timeout=TIMEOUT            Timeout when starting the cluster (default: 30)
+    -l, --log-level=LEVEL            Logger verbosity, numbers allowed (1..5) or level names (DEBUG, INFO, WARN, ERROR, FATAL)
+    -V VERSION                       Elasticsearch version to use (default 1.2.1)
+    -P                               Configure cluster to persist data across restarts
+    -h, --help                       Show this message
+    -v, --version                    Show gem version
 ```
 
 In order to start a single node cluster (with in memory indices) just run

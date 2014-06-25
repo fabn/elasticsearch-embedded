@@ -2,12 +2,20 @@ require 'timeout'
 require 'net/http'
 require 'uri'
 require 'json'
+require 'logger'
 
 module Elasticsearch
   module Embedded
 
     # Class used to manage a local cluster of elasticsearch nodes
     class Cluster
+
+      # Logger instance to output messages
+      def logger
+        @logger ||= Logger.new(STDOUT).tap do |l|
+          l.level = Logger::INFO
+        end
+      end
 
       # Options for cluster
       attr_accessor :port, :cluster_name, :nodes, :timeout, :persistent, :additional_options
@@ -103,6 +111,19 @@ module Elasticsearch
         http_object.put('/_template/development_template', JSON.dump(development_settings))
       end
 
+      # Configure class logger verbosity
+      # @param [String,Fixnum] level accepts strings levels or numbers
+      def verbosity(level)
+        case level.to_s
+          when /\A\d\Z/
+            logger.level = level.to_i
+          when /\A(#{%w(DEBUG INFO WARN ERROR FATAL).join('|')})\Z/i
+            logger.level = Logger.const_get(level.to_s.upcase)
+          else
+            logger.level = Logger::INFO
+        end
+      end
+
       private
 
       # Build command line to launch an instance
@@ -136,8 +157,9 @@ module Elasticsearch
       end
 
       def start_cluster
+        logger.info "Starting ES #{version} cluster with working directory set to #{working_dir}. Process pid is #{$$}"
         if running?
-          print '[!] Elasticsearch cluster already running'
+          logger.debug "Elasticsearch cluster already running on port #{port}"
           wait_for_green(timeout)
           return false
         end
@@ -205,7 +227,7 @@ module Elasticsearch
       # Register a shutdown proc which handles INT, TERM and QUIT signals
       def register_shutdown_handler
         stopper = ->(sig) do
-          puts "Received SIG#{Signal.signame(sig)}, quitting"
+          logger.info "Received SIG#{Signal.signame(sig)}, quitting"
           stop
         end
         # Stop cluster on Ctrl+C, TERM (foreman) or QUIT (other)
@@ -242,11 +264,9 @@ module Elasticsearch
             response = begin
               JSON.parse(http_object.get("/_cluster/health?wait_for_status=#{status}").body)
             rescue Exception => e
-              puts e.inspect if ENV['DEBUG']
+              logger.debug e.inspect if ENV['DEBUG']
               nil
             end
-
-            puts response.inspect if ENV['DEBUG']
 
             if response && response['status'] == status && (nodes.nil? || nodes == response['number_of_nodes'].to_i)
               __print_cluster_info and break

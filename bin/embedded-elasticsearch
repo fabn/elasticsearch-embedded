@@ -27,6 +27,10 @@ OptionParser.new do |opts|
     cluster.timeout = t
   end
 
+  opts.on '-l', '--log-level=LEVEL', 'Logger verbosity, numbers allowed (1..5) or level names (DEBUG, INFO, WARN, ERROR, FATAL)' do |l|
+    cluster.verbosity(l)
+  end
+
   opts.on '-V VERSION', "Elasticsearch version to use (default #{Elasticsearch::Embedded::Downloader::DEFAULT_VERSION})" do |v|
     cluster.version = v
   end
@@ -50,6 +54,5 @@ end.parse!
 
 # Forward additional arguments to elasticsearch
 cluster.additional_options = ARGV.join(' ') unless ARGV.empty?
-
-puts "Starting ES #{cluster.version} cluster with working directory set to #{cluster.working_dir}. Process pid is #{$$}"
+# Start the cluster
 cluster.start_and_wait!
