@@ -21,4 +21,19 @@ describe Elasticsearch::Embedded::Cluster, :elasticsearch do
 
   end
 
+  describe '#pids' do
+
+    it 'should return a list running instances pids' do
+      puts cluster.pids
+      expect(cluster.pids).to_not be_empty
+    end
+
+    it 'should return an empty array on errors' do
+      not_started = Elasticsearch::Embedded::Cluster.new
+      not_started.port = 50000 # Nobody should listen on this port
+      expect(not_started.pids).to eq([])
+    end
+
+  end
+
 end

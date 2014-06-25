@@ -59,6 +59,14 @@ module Elasticsearch
         Elasticsearch::Extensions::Test::Cluster.running? on: port, as: cluster_name
       end
 
+      # Return running instances pids, borrowed from code in Elasticsearch::Extensions::Test::Cluster
+      def pids
+        # Try to fetch node info from running cluster
+        nodes = JSON.parse(Net::HTTP.get(URI("http://localhost:#{port}/_nodes/?process"))) rescue []
+        # Fetch pids from returned data
+        nodes.empty? ? nodes : nodes['nodes'].map { |_, info| info['process']['id'] }
+      end
+
       # Remove all indices in the cluster
       #
       # @return [Array<Net::HTTPResponse>] raw http responses
