@@ -10,7 +10,7 @@ module Elasticsearch
     class Cluster
 
       # Options for cluster
-      attr_accessor :port, :cluster_name, :nodes, :timeout, :persistent
+      attr_accessor :port, :cluster_name, :nodes, :timeout, :persistent, :additional_options
 
       # Options for downloader
       attr_accessor :downloader, :version, :working_dir
@@ -129,8 +129,9 @@ module Elasticsearch
             '-D es.script.disable_dynamic=false',
             '-D es.node.test=true',
             '-D es.node.bench=true',
+            additional_options,
             '> /dev/null' # TODO make cluster output optin
-        ].join(' ')
+        ].compact.join(' ')
       end
 
       # Spawn an elasticsearch process and return its pid

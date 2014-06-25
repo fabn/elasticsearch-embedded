@@ -48,5 +48,8 @@ OptionParser.new do |opts|
 
 end.parse!
 
+# Forward additional arguments to elasticsearch
+cluster.additional_options = ARGV.join(' ') unless ARGV.empty?
+
 puts "Starting ES #{cluster.version} cluster with working directory set to #{cluster.working_dir}. Process pid is #{$$}"
 cluster.start_and_wait!
