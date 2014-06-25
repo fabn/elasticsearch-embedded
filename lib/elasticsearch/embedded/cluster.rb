@@ -23,9 +23,6 @@ module Elasticsearch
       # Options for downloader
       attr_accessor :downloader, :version, :working_dir
 
-      # Runtime variables
-      attr_reader :pids
-
       # Assign default values to options
       def initialize
         @nodes = 1
@@ -35,6 +32,7 @@ module Elasticsearch
         @timeout = 30
         @cluster_name = 'elasticsearch_test'
         @pids = []
+        @pids_lock = Mutex.new
       end
 
       # Start an elasticsearch cluster and return immediately
@@ -47,35 +45,33 @@ module Elasticsearch
       # Start an elasticsearch cluster and wait until running, also register
       # a signal handler to close the cluster on INT, TERM and QUIT signals
       def start_and_wait!
-        start # start the cluster
+        # register handler before starting cluster
         register_shutdown_handler
+        # start the cluster
+        start
         # Wait for all child processes to end then return
         Process.waitall
       end
 
       # Stop the cluster and return after all child processes are dead
       def stop
-        begin
-          # Try to shutdown cluster using shutdown api
+        logger.warn 'Cluster is still starting, wait until startup is complete before sending shutdown command' if @pids_lock.locked?
+        @pids_lock.synchronize do
           http_object.post('/_shutdown', nil)
           Timeout.timeout(2) { Process.waitall }
-        rescue
-          # Send term signal if post request fails to all processes still alive after 2 seconds
-          (pids + nodes_pids).each { |pid| wait_or_kill(pid) }
-        ensure
+          logger.debug 'Cluster stopped succesfully using shutdown api'
           # Reset running pids reader
           @pids = []
         end
+      rescue
+        logger.warn "Following processes are still alive #{pids}, kill them with signals"
+        # Send term signal if post request fails to all processes still alive after 2 seconds
+        pids.each { |pid| wait_or_kill(pid) }
       end
 
-      # Return running instances pids, borrowed from code in Elasticsearch::Extensions::Test::Cluster.
-      # This method returns elasticsearch nodes pids and not spawned command pids, they are different because of
-      # elasticsearch shell wrapper used to launch the daemon
-      def nodes_pids
-        # Try to fetch node info from running cluster
-        nodes = JSON.parse(http_object.get('/_nodes/?process').body) rescue []
-        # Fetch pids from returned data
-        nodes.empty? ? nodes : nodes['nodes'].map { |_, info| info['process']['id'] }
+      # Thread safe access to all spawned process pids
+      def pids
+        @pids_lock.synchronize { @pids }
       end
 
       # Start server unless it's running
@@ -160,38 +156,58 @@ module Elasticsearch
       # Spawn an elasticsearch process and return its pid
       def launch_instance(instance_number = 1)
         # Start the process within a new process group to avoid signal propagation
-        Process.spawn(build_command_line(instance_number), pgroup: true).tap { |pid| Process.detach pid }
+        Process.spawn(build_command_line(instance_number), pgroup: true).tap do |pid|
+          logger.debug "Launched elasticsearch process with pid #{pid}, detaching it"
+          Process.detach pid
+        end
+      end
+
+      # Return running instances pids, borrowed from code in Elasticsearch::Extensions::Test::Cluster.
+      # This method returns elasticsearch nodes pids and not spawned command pids, they are different because of
+      # elasticsearch shell wrapper used to launch the daemon
+      def nodes_pids
+        # Try to fetch node info from running cluster
+        nodes = JSON.parse(http_object.get('/_nodes/?process').body) rescue []
+        # Fetch pids from returned data
+        nodes.empty? ? nodes : nodes['nodes'].map { |_, info| info['process']['id'] }
       end
 
       def start_cluster
         logger.info "Starting ES #{version} cluster with working directory set to #{working_dir}. Process pid is #{$$}"
         if running?
-          logger.debug "Elasticsearch cluster already running on port #{port}"
+          logger.warn "Elasticsearch cluster already running on port #{port}"
           wait_for_green(timeout)
-          return false
+          return
         end
-        # Launch single node instances
-        @pids = 1.upto(nodes).map { |i| launch_instance(i) }
-        # Check for proceses running
-        if `ps -p #{pids.join(' ')}`.split("\n").size < nodes + 1
-          STDERR.puts '', '[!!!] Process failed to start (see output above)'
-          exit(1)
+        # Launch single node instances of elasticsearch with synchronization
+        @pids_lock.synchronize do
+          1.upto(nodes).each do |i|
+            @pids << launch_instance(i)
+          end
+          # Wait for cluster green state before releasing lock
+          wait_for_green(timeout)
+          # Add started nodes pids to pid array
+          @pids.concat(nodes_pids)
         end
-        wait_for_green(timeout)
-        true
       end
 
       def wait_or_kill(pid)
         begin
           Timeout::timeout(2) do
             Process.kill(:TERM, pid)
+            logger.debug "Sent SIGTERM to process #{pid}"
             Process.waitpid(pid)
+            logger.info "Process #{pid} exited successfully"
           end
         rescue Errno::ESRCH, Errno::ECHILD
           # No such process or no child => process is already dead
+          logger.debug "Process with pid #{pid} is already dead"
         rescue Timeout::Error
-          # Process still running after 2 seconds of waitpid sending kill to it
+          logger.info "Process #{pid} still running after 2 seconds, sending SIGKILL to it"
           Process.kill(:KILL, pid) rescue nil
+        ensure
+          logger.debug "Removing #{pid} from running pids"
+          @pids_lock.synchronize { @pids.delete(pid) }
         end
       end
 
@@ -219,8 +235,14 @@ module Elasticsearch
 
       # Register a shutdown proc which handles INT, TERM and QUIT signals
       def register_shutdown_handler
+        stopper = ->(sig) do
+          Thread.new do
+            logger.info "Received SIG#{Signal.signame(sig)}, quitting"
+            stop
+          end
+        end
         # Stop cluster on Ctrl+C, TERM (foreman) or QUIT (other)
-        [:TERM, :INT, :QUIT].each { |sig| Signal.trap(sig, lambda { stop }) }
+        [:TERM, :INT, :QUIT].each { |sig| Signal.trap(sig, &stopper) }
       end
 
       # Waits until the cluster is green and prints information

@@ -29,16 +29,8 @@ describe Elasticsearch::Embedded::Cluster, :elasticsearch do
 
     it 'should return an empty array when not started' do
       not_started = Elasticsearch::Embedded::Cluster.new
+      not_started.port = 50000 # Likely there's no process running on this port
       expect(not_started.pids).to eq([])
-    end
-
-  end
-
-  describe '#nodes_pids' do
-
-    it 'should return a list running java processes pids' do
-      expect(cluster.nodes_pids).to_not be_empty
-      expect(cluster.nodes_pids).to_not eq(cluster.pids)
     end
 
   end
