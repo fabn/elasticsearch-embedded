@@ -8,3 +8,7 @@ gem 'fakefs', github: 'defunkt/fakefs'
 
 # used for code coverage reports
 gem 'coveralls', require: false
+
+# Useful for debugging
+gem 'pry'
+gem 'awesome_print'
