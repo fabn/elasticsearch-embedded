@@ -137,7 +137,6 @@ module Elasticsearch
 
       # Build command line to launch an instance
       def build_command_line(instance_number)
-        # TODO add additional params as option
         [
             downloader.executable,
             '-D es.foreground=yes',
