@@ -254,18 +254,14 @@ module Elasticsearch
       def __wait_for_status(status='green', timeout = 30)
         Timeout::timeout(timeout) do
           loop do
-            response = begin
-              JSON.parse(http_object.get("/_cluster/health?wait_for_status=#{status}").body)
-            rescue Exception => e
-              logger.debug e.inspect if ENV['DEBUG']
-              nil
-            end
+            response = JSON.parse(http_object.get("/_cluster/health?wait_for_status=#{status}").body) rescue {}
 
-            if response && response['status'] == status && (nodes.nil? || nodes == response['number_of_nodes'].to_i)
+            # check response and return if ok
+            if response['status'] == status && nodes == response['number_of_nodes'].to_i
               __print_cluster_info and break
             end
 
-            print '.'
+            logger.debug "Still waiting for #{status} status in #{cluster_name}"
             sleep 1
           end
         end
@@ -282,16 +278,14 @@ module Elasticsearch
         nodes = JSON.parse(http_object.get('/_nodes/process,http').body)
         master = JSON.parse(http_object.get('/_cluster/state').body)['master_node']
 
-        puts "\n",
-             ('-'*80),
-             'Cluster: '.ljust(20) + health['cluster_name'].to_s,
-             'Status:  '.ljust(20) + health['status'].to_s,
-             'Nodes:   '.ljust(20) + health['number_of_nodes'].to_s
+        logger.info '-'*80
+        logger.info 'Cluster: '.ljust(12) + health['cluster_name'].to_s
+        logger.info 'Status:  '.ljust(12) + health['status'].to_s
+        logger.info 'Nodes:   '.ljust(12) + health['number_of_nodes'].to_s
 
         nodes['nodes'].each do |id, info|
           m = id == master ? '+' : '-'
-          puts ''.ljust(20) +
-                   "#{m} #{info['name']} | version: #{info['version']}, pid: #{info['process']['id']}, address: #{info['http']['bound_address']}"
+          logger.info ''.ljust(12) + "#{m} #{info['name']} | version: #{info['version']}, pid: #{info['process']['id']}, address: #{info['http']['bound_address']}"
         end
       end
 
