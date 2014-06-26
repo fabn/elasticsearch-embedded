@@ -9,8 +9,6 @@ require 'fakefs/spec_helpers'
 require 'elasticsearch'
 # Activate gem behavior with :elasticsearch tagged specs
 Elasticsearch::Embedded::RSpec.configure
-# disable logging in tests
-Logging.logger.root.clear_appenders
 
 RSpec.configure do |config|
   config.filter_run :focus
