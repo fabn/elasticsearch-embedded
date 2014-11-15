@@ -41,7 +41,7 @@ describe Elasticsearch::Embedded::RSpec do
 
       it 'should use :elastisearch filter only' do
         subject.configure
-        expect(stub_config).to have_received(:include).with(Elasticsearch::Embedded::RSpec::ElasticSearchHelpers, :elasticsearch)
+        expect(stub_config).to have_received(:include).with(Elasticsearch::Embedded::RSpec::ElasticSearchHelpers, elasticsearch: true)
       end
 
     end
