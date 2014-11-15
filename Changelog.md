@@ -1,5 +1,7 @@
 ## On develop branch
 
+* Avoid name issues when `elasticsearch-rails` gem is present in the bundle
+
 ## 0.1.1, released 2014-11-15
 
 * Updated elasticsearch default version to 1.4.0
