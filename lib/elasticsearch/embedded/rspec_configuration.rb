@@ -60,7 +60,7 @@ module Elasticsearch
         # Default config method, configure RSpec with :elasticsearch filter only.
         # Equivalent to .configure_with(:elasticsearch)
         def configure
-          configure_with(:elasticsearch)
+          configure_with(elasticsearch: true)
         end
       end
 
