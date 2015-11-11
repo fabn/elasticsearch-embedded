@@ -9,7 +9,7 @@ module Elasticsearch
     class Downloader
 
       # Default temporary path used by downloader
-      TEMPORARY_PATH = defined?(Rails) ? Rails.root.join('tmp') : Dir.tmpdir
+      TEMPORARY_PATH = defined?(::Rails) ? ::Rails.root.join('tmp') : Dir.tmpdir
       # Default version of elasticsearch to download
       DEFAULT_VERSION = '1.4.0'
 

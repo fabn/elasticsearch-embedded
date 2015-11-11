@@ -119,6 +119,24 @@ end
 
 ```
 
+### With VCR/Webmock
+
+If your test suite include a web stubbing library this gem will have issues, for instance VRC and/or Webmock disable
+web interactions making impossible to download ES (on first run) and to connect to the cluster. Temporarily disable
+them with around hooks, in RSpec
+
+```ruby
+# Disable VCR and webmock for elasticsearch tagged specs
+config.around(:each, :elasticsearch) do |example|
+  begin
+    WebMock.allow_net_connect!
+    VCR.turned_off(&example)
+  ensure
+    WebMock.disable_net_connect!
+  end
+end
+```
+
 ### With Test::Unit/minitest
 
 Pull requests are welcome.
